@@ -49,8 +49,8 @@ use std::cmp;
 use std::collections::VecDeque;
 use std::error;
 use std::fmt;
-use std::ops::{Deref, DerefMut};
 use std::mem;
+use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Weak};
 use std::time::{Duration, Instant};
 
@@ -394,15 +394,18 @@ where
     /// error.
     pub fn get(&self) -> Result<PooledConnection<M>, Error> {
         let end = Instant::now() + self.0.config.connection_timeout;
+        info!("get!");
         let mut internals = self.0.internals.lock();
 
         loop {
+            info!("get - inner loop!");
             match self.try_get_inner(internals) {
                 Ok(conn) => return Ok(conn),
                 Err(i) => internals = i,
             }
 
             if internals.num_conns + internals.pending_conns < self.0.config.max_size {
+                info!("adding connection!");
                 add_connection(&self.0, &mut internals);
             }
 
@@ -427,13 +430,17 @@ where
         &'a self,
         mut internals: MutexGuard<'a, PoolInternals<M::Connection>>,
     ) -> Result<PooledConnection<M>, MutexGuard<'a, PoolInternals<M::Connection>>> {
+        info!("try_get_inner!");
         loop {
             if let Some(mut conn) = internals.conns.pop_front() {
+                info!("conn: is popped!");
                 establish_idle_connections(&self.0, &mut internals);
                 drop(internals);
 
                 if self.0.config.test_on_check_out {
+                    info!("test on check out!");
                     if let Err(e) = self.0.manager.is_valid(&mut conn.conn.conn) {
+                        info!("test on check out error e: {:?}", e);
                         let msg = e.to_string();
                         self.0.config.error_handler.handle_error(e);
                         // FIXME we shouldn't have to lock, unlock, and relock here
@@ -450,6 +457,7 @@ where
                     conn: Some(conn.conn),
                 });
             } else {
+                println!("err internals!");
                 return Err(internals);
             }
         }
