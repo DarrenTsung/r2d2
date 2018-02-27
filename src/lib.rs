@@ -212,16 +212,22 @@ where
     M: ManageConnection,
 {
     if internals.num_conns + internals.pending_conns >= shared.config.max_size {
+        println!("internals.pending_conns: {:?}", internals.pending_conns);
+        println!("internals.num_conns: {:?}", internals.num_conns);
+        println!("shared.config.max_size: {:?}", shared.config.max_size);
+        println!("out of size!");
         return;
     }
 
     internals.pending_conns += 1;
+    println!("new internals.pending_conns: {:?}", internals.pending_conns);
     inner(Duration::from_secs(0), shared);
 
     fn inner<M>(delay: Duration, shared: &Arc<SharedPool<M>>)
     where
         M: ManageConnection,
     {
+        println!("delay: {:?}", delay);
         let new_shared = Arc::downgrade(shared);
         shared.config.thread_pool.execute_after(delay, move || {
             let shared = match new_shared.upgrade() {
